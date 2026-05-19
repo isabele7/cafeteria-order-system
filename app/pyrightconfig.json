@@ -1,0 +1,11 @@
+{
+  "typeCheckingMode": "standard",
+  "reportAttributeAccessIssue": "warning",
+  "reportGeneralTypeIssues": "warning",
+  "reportArgumentType": "warning",
+  "pythonVersion": "3.12",
+  "exclude": ["**/node_modules", "**/__pycache__", "venv"],
+  "defineConstant": {
+    "DEBUG": false
+  }
+}
