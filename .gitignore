@@ -54,3 +54,5 @@ coverage.xml
 
 # Mutation testing
 mutmut_results/
+
+desktop.ini
