@@ -1,16 +1,20 @@
 from sqlalchemy import create_engine
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 DATABASE_URL = "sqlite:///./cafeteria_order_system.db"
 
+# Configuração do SQLAlchemy
 engine = create_engine(
     DATABASE_URL,
     connect_args={"check_same_thread": False},
     echo=False
 )
 
+# Criação da sessão
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
+
+class Base(DeclarativeBase):
+    pass
 
 def get_db():
     db = SessionLocal()
@@ -20,4 +24,5 @@ def get_db():
         db.close()
 
 def init_db():
-    Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=engine)  
+    
