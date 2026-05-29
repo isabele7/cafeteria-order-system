@@ -1,5 +1,7 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, Enum as SQLEnum
+from typing import List, Optional
+from sqlalchemy import Integer, String, Float, DateTime, Enum as SQLEnum, Boolean, ForeignKey
 from sqlalchemy.sql import func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from enum import Enum
 from app.database import Base
 
@@ -17,12 +19,14 @@ class TipoPedido(str, Enum):
 class Produto(Base):
     __tablename__ = "produtos"
 
-    id = Column(Integer, primary_key=True, index=True)
-    nome = Column(String, unique=True, index=True, nullable=False)
-    preco = Column(Float, nullable=False)
-    estoque = Column(Integer, nullable=False, default=0)
-    criado_em = Column(DateTime, server_default=func.now())
-    atualizado_em = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    nome: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
+    preco: Mapped[float] = mapped_column(Float, nullable=False)
+    estoque: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    criado_em: Mapped[DateTime] = mapped_column(DateTime, server_default=func.now())
+    atualizado_em: Mapped[DateTime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    itens: Mapped[List["ItemPedido"]] = relationship("ItemPedido", back_populates="produto")
 
     def __repr__(self):
         return f"<Produto(id={self.id}, nome={self.nome}, preco={self.preco}, estoque={self.estoque})>"
@@ -31,30 +35,35 @@ class Produto(Base):
 class Cupom(Base):
     __tablename__ = "cupons"
 
-    id = Column(Integer, primary_key=True, index=True)
-    codigo = Column(String, unique=True, index=True, nullable=False)
-    desconto = Column(Float, nullable=False)  # Percentual (ex: 10 para 10%)
-    minimo = Column(Float, default=50.0)  # Mínimo de subtotal
-    ativo = Column(Integer, default=1)  # 1 = ativo, 0 = inativo
-    criado_em = Column(DateTime, server_default=func.now())
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    codigo: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
+    desconto: Mapped[float] = mapped_column(Float, nullable=False)  # Percentual (ex: 10 para 10%)
+    minimo: Mapped[float] = mapped_column(Float, default=50.0)  # Mínimo de subtotal
+    ativo: Mapped[bool] = mapped_column(Boolean, default=True)  # True = ativo, False = inativo
+    criado_em: Mapped[DateTime] = mapped_column(DateTime, server_default=func.now())
+
+    pedidos: Mapped[List["Pedido"]] = relationship("Pedido", back_populates="cupom")
 
     def __repr__(self):
-        return f"<Cupom(codigo={self.codigo}, desconto={self.desconto}%)>"
+        return f"<Cupom(codigo={self.codigo}, desconto={self.desconto}% )>"
 
 # Colunas de pedido: id, status, tipo, subtotal, desconto, taxa_entrega, total, cupom_id, criado_em, atualizado_em
 class Pedido(Base):
     __tablename__ = "pedidos"
 
-    id = Column(Integer, primary_key=True, index=True)
-    status = Column(SQLEnum(StatusPedido), default=StatusPedido.CRIADO, nullable=False)
-    tipo = Column(SQLEnum(TipoPedido), nullable=True)
-    subtotal = Column(Float, default=0.0)
-    desconto = Column(Float, default=0.0)
-    taxa_entrega = Column(Float, default=0.0)
-    total = Column(Float, default=0.0)
-    cupom_id = Column(Integer, nullable=True)
-    criado_em = Column(DateTime, server_default=func.now())
-    atualizado_em = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    status: Mapped[StatusPedido] = mapped_column(SQLEnum(StatusPedido), default=StatusPedido.CRIADO, nullable=False)
+    tipo: Mapped[Optional[TipoPedido]] = mapped_column(SQLEnum(TipoPedido), nullable=True)
+    subtotal: Mapped[float] = mapped_column(Float, default=0.0)
+    desconto: Mapped[float] = mapped_column(Float, default=0.0)
+    taxa_entrega: Mapped[float] = mapped_column(Float, default=0.0)
+    total: Mapped[float] = mapped_column(Float, default=0.0)
+    cupom_id: Mapped[Optional[int]] = mapped_column(ForeignKey("cupons.id"), nullable=True)
+    criado_em: Mapped[DateTime] = mapped_column(DateTime, server_default=func.now())
+    atualizado_em: Mapped[DateTime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    itens: Mapped[List["ItemPedido"]] = relationship("ItemPedido", back_populates="pedido", cascade="all, delete-orphan")
+    cupom: Mapped[Optional["Cupom"]] = relationship("Cupom", back_populates="pedidos")
 
     def __repr__(self):
         return f"<Pedido(id={self.id}, status={self.status}, total={self.total})>"
@@ -63,13 +72,16 @@ class Pedido(Base):
 class ItemPedido(Base):
     __tablename__ = "itens_pedido"
 
-    id = Column(Integer, primary_key=True, index=True)
-    pedido_id = Column(Integer, nullable=False, index=True)
-    produto_id = Column(Integer, nullable=False)
-    quantidade = Column(Integer, nullable=False)
-    preco_unitario = Column(Float, nullable=False)
-    subtotal = Column(Float, nullable=False)
-    criado_em = Column(DateTime, server_default=func.now())
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    pedido_id: Mapped[int] = mapped_column(ForeignKey("pedidos.id"), nullable=False, index=True)
+    produto_id: Mapped[int] = mapped_column(ForeignKey("produtos.id"), nullable=False)
+    quantidade: Mapped[int] = mapped_column(Integer, nullable=False)
+    preco_unitario: Mapped[float] = mapped_column(Float, nullable=False)
+    subtotal: Mapped[float] = mapped_column(Float, nullable=False)
+    criado_em: Mapped[DateTime] = mapped_column(DateTime, server_default=func.now())
+
+    pedido: Mapped["Pedido"] = relationship("Pedido", back_populates="itens")
+    produto: Mapped["Produto"] = relationship("Produto", back_populates="itens")
 
     def __repr__(self):
         return f"<ItemPedido(pedido_id={self.pedido_id}, produto_id={self.produto_id}, qtd={self.quantidade})>"
