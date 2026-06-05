@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import Pedido, ItemPedido, TipoPedido
-from app.services.pedido_service import PedidoService
+from app.models import Pedido, TipoPedido
+from app.services.pedido_service import OperacoesPedido
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/pedidos", tags=["pedidos"])
@@ -45,7 +45,7 @@ class PedidoDetalhadoResposta(PedidoResposta):
 
 @router.post("", response_model=PedidoResposta, status_code=201)
 def criar_pedido(db: Session = Depends(get_db)):
-    pedido = PedidoService.criar_pedido(db)
+    pedido = OperacoesPedido.criar_pedido(db)
     return pedido
 
 @router.post("/{pedido_id}/itens", response_model=ItemPedidoResposta, status_code=201)
@@ -54,7 +54,7 @@ def adicionar_item(
     item: CriarItemPedido,
     db: Session = Depends(get_db)
 ):
-    sucesso, item_criado, mensagem = PedidoService.adicionar_item(
+    sucesso, item_criado, mensagem = OperacoesPedido.adicionar_item(
         pedido_id, item.produto_id, item.quantidade, db
     )
 
@@ -69,7 +69,7 @@ def remover_item(
     item_id: int,
     db: Session = Depends(get_db)
 ):
-    sucesso, mensagem = PedidoService.remover_item(item_id, db)
+    sucesso, mensagem = OperacoesPedido.remover_item(item_id, db)
 
     if not sucesso:
         raise HTTPException(status_code=400, detail=mensagem)
@@ -82,7 +82,7 @@ def aplicar_cupom(
     cupom: AplicarCupom,
     db: Session = Depends(get_db)
 ):
-    sucesso, mensagem = PedidoService.aplicar_cupom(pedido_id, cupom.codigo, db)
+    sucesso, mensagem = OperacoesPedido.aplicar_cupom(pedido_id, cupom.codigo, db)
 
     if not sucesso:
         raise HTTPException(status_code=400, detail=mensagem)
@@ -91,7 +91,7 @@ def aplicar_cupom(
 
 @router.delete("/{pedido_id}/cupom")
 def remover_cupom(pedido_id: int, db: Session = Depends(get_db)):
-    sucesso, mensagem = PedidoService.remover_cupom(pedido_id, db)
+    sucesso, mensagem = OperacoesPedido.remover_cupom(pedido_id, db)
 
     if not sucesso:
         raise HTTPException(status_code=400, detail=mensagem)
@@ -104,7 +104,7 @@ def definir_tipo_pedido(
     tipo_att: AtualizarTipoPedido,
     db: Session = Depends(get_db)
 ):
-    sucesso, mensagem = PedidoService.definir_tipo_pedido(
+    sucesso, mensagem = OperacoesPedido.definir_tipo_pedido(
         pedido_id, tipo_att.tipo, db
     )
 
@@ -115,7 +115,7 @@ def definir_tipo_pedido(
 
 @router.post("/{pedido_id}/finalizar")
 def finalizar_pedido(pedido_id: int, db: Session = Depends(get_db)):
-    sucesso, mensagem = PedidoService.finalizar_pedido(pedido_id, db)
+    sucesso, mensagem = OperacoesPedido.finalizar_pedido(pedido_id, db)
 
     if not sucesso:
         raise HTTPException(status_code=400, detail=mensagem)
@@ -124,8 +124,7 @@ def finalizar_pedido(pedido_id: int, db: Session = Depends(get_db)):
 
 @router.post("/{pedido_id}/cancelar")
 def cancelar_pedido(pedido_id: int, db: Session = Depends(get_db)):
-    """Cancela o pedido"""
-    sucesso, mensagem = PedidoService.cancelar_pedido(pedido_id, db)
+    sucesso, mensagem = OperacoesPedido.cancelar_pedido(pedido_id, db)
 
     if not sucesso:
         raise HTTPException(status_code=400, detail=mensagem)
@@ -134,11 +133,11 @@ def cancelar_pedido(pedido_id: int, db: Session = Depends(get_db)):
 
 @router.get("/{pedido_id}", response_model=PedidoDetalhadoResposta)
 def obter_pedido(pedido_id: int, db: Session = Depends(get_db)):
-    pedido = PedidoService.obter_pedido(pedido_id, db)
+    pedido = OperacoesPedido.obter_pedido(pedido_id, db)
     if not pedido:
         raise HTTPException(status_code=404, detail="Pedido não encontrado")
 
-    itens = PedidoService.listar_itens_pedido(pedido_id, db)
+    itens = OperacoesPedido.listar_itens_pedido(pedido_id, db)
     pedido_dict = {
         "id": pedido.id,
         "status": pedido.status.value,
