@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Cupom
-from app.services.cupom_service import CupomService
+from app.services.cupom_service import OperacoesCupom
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/cupons", tags=["cupons"])
@@ -21,7 +21,7 @@ class CupomResposta(BaseModel):
 
 @router.post("", response_model=CupomResposta, status_code=201)
 def criar_cupom(cupom: CriarCupom, db: Session = Depends(get_db)):
-    novo_cupom = CupomService.criar_cupom(
+    novo_cupom = OperacoesCupom.criar_cupom(
         codigo=cupom.codigo,
         desconto=cupom.desconto,
         minimo=cupom.minimo,
@@ -31,12 +31,10 @@ def criar_cupom(cupom: CriarCupom, db: Session = Depends(get_db)):
 
 @router.get("", response_model=list[CupomResposta])
 def listar_cupons(db: Session = Depends(get_db)):
-    """Lista todos os cupons ativos"""
-    return CupomService.listar_cupons(db)
+    return OperacoesCupom.listar_cupons(db)
 
 @router.get("/{cupom_id}", response_model=CupomResposta)
 def obter_cupom(cupom_id: int, db: Session = Depends(get_db)):
-    """Obtém um cupom pelo ID"""
     cupom = db.query(Cupom).filter(Cupom.id == cupom_id).first()
     if not cupom:
         raise HTTPException(status_code=404, detail="Cupom não encontrado")
