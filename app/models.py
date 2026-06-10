@@ -37,10 +37,14 @@ class Cupom(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     codigo: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
-    desconto: Mapped[float] = mapped_column(Float, nullable=False)  # Percentual (ex: 10 para 10%)
+    desconto: Mapped[float] = mapped_column(Float, nullable=False)  # Percentual 
     minimo: Mapped[float] = mapped_column(Float, default=50.0)  # Mínimo de subtotal
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)  # True = ativo, False = inativo
     criado_em: Mapped[DateTime] = mapped_column(DateTime, server_default=func.now())
+    ativo_de: Mapped[DateTime] = mapped_column(DateTime, nullable=True)  # Data de ativação
+    ativo_ate: Mapped[DateTime] = mapped_column(DateTime, nullable=True)  # Data de expiração
+    usos: Mapped[int] = mapped_column(Integer, default=0)  # Quantidade de vezes que o cupom foi usado
+    max_usos_por_cliente: Mapped[int] = mapped_column(Integer, nullable=True)  # Limite de usos por cliente
 
     pedidos: Mapped[List["Pedido"]] = relationship("Pedido", back_populates="cupom")
 
@@ -52,6 +56,7 @@ class Pedido(Base):
     __tablename__ = "pedidos"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    cliente_id: Mapped[str] = mapped_column(String, nullable=True, index=True)  # CPF do cliente (opcional)
     status: Mapped[StatusPedido] = mapped_column(SQLEnum(StatusPedido), default=StatusPedido.CRIADO, nullable=False)
     tipo: Mapped[Optional[TipoPedido]] = mapped_column(SQLEnum(TipoPedido), nullable=True)
     subtotal: Mapped[float] = mapped_column(Float, default=0.0)
