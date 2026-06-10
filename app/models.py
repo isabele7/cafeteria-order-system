@@ -1,5 +1,6 @@
 from typing import List, Optional
-from sqlalchemy import Integer, String, Float, DateTime, Enum as SQLEnum, Boolean, ForeignKey
+from datetime import datetime
+from sqlalchemy import Integer, String, Float, DateTime as SQLDateTime, Enum as SQLEnum, Boolean, ForeignKey
 from sqlalchemy.sql import func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from enum import Enum
@@ -23,8 +24,8 @@ class Produto(Base):
     nome: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
     preco: Mapped[float] = mapped_column(Float, nullable=False)
     estoque: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    criado_em: Mapped[DateTime] = mapped_column(DateTime, server_default=func.now())
-    atualizado_em: Mapped[DateTime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+    criado_em: Mapped[SQLDateTime] = mapped_column(SQLDateTime, server_default=func.now())
+    atualizado_em: Mapped[SQLDateTime] = mapped_column(SQLDateTime, server_default=func.now(), onupdate=func.now())
 
     itens: Mapped[List["ItemPedido"]] = relationship("ItemPedido", back_populates="produto")
 
@@ -40,9 +41,9 @@ class Cupom(Base):
     desconto: Mapped[float] = mapped_column(Float, nullable=False)  # Percentual 
     minimo: Mapped[float] = mapped_column(Float, default=50.0)  # Mínimo de subtotal
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)  # True = ativo, False = inativo
-    criado_em: Mapped[DateTime] = mapped_column(DateTime, server_default=func.now())
-    ativo_de: Mapped[DateTime] = mapped_column(DateTime, nullable=True)  # Data de ativação
-    ativo_ate: Mapped[DateTime] = mapped_column(DateTime, nullable=True)  # Data de expiração
+    criado_em: Mapped[SQLDateTime] = mapped_column(SQLDateTime, server_default=func.now())
+    ativo_de: Mapped[SQLDateTime] = mapped_column(SQLDateTime, nullable=True)  # Data de ativação
+    ativo_ate: Mapped[SQLDateTime] = mapped_column(SQLDateTime, nullable=True)  # Data de expiração
     usos: Mapped[int] = mapped_column(Integer, default=0)  # Quantidade de vezes que o cupom foi usado
     max_usos_por_cliente: Mapped[int] = mapped_column(Integer, nullable=True)  # Limite de usos por cliente
 
@@ -64,8 +65,8 @@ class Pedido(Base):
     taxa_entrega: Mapped[float] = mapped_column(Float, default=0.0)
     total: Mapped[float] = mapped_column(Float, default=0.0)
     cupom_id: Mapped[Optional[int]] = mapped_column(ForeignKey("cupons.id"), nullable=True)
-    criado_em: Mapped[DateTime] = mapped_column(DateTime, server_default=func.now())
-    atualizado_em: Mapped[DateTime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+    criado_em: Mapped[SQLDateTime] = mapped_column(SQLDateTime, server_default=func.now())
+    atualizado_em: Mapped[SQLDateTime] = mapped_column(SQLDateTime, server_default=func.now(), onupdate=func.now())
 
     itens: Mapped[List["ItemPedido"]] = relationship("ItemPedido", back_populates="pedido", cascade="all, delete-orphan")
     cupom: Mapped[Optional["Cupom"]] = relationship("Cupom", back_populates="pedidos")
@@ -83,7 +84,7 @@ class ItemPedido(Base):
     quantidade: Mapped[int] = mapped_column(Integer, nullable=False)
     preco_unitario: Mapped[float] = mapped_column(Float, nullable=False)
     subtotal: Mapped[float] = mapped_column(Float, nullable=False)
-    criado_em: Mapped[DateTime] = mapped_column(DateTime, server_default=func.now())
+    criado_em: Mapped[SQLDateTime] = mapped_column(SQLDateTime, server_default=func.now())
 
     pedido: Mapped["Pedido"] = relationship("Pedido", back_populates="itens")
     produto: Mapped["Produto"] = relationship("Produto", back_populates="itens")
