@@ -1,13 +1,13 @@
-from sqlalchemy.orm import Session
+﻿from sqlalchemy.orm import Session
 from app.models import Pedido, ItemPedido, Produto, StatusPedido, TipoPedido, Cupom
 from app.services.cupom_service import OperacoesCupom
 from typing import Any, cast
 
 class OperacoesPedido:
     @staticmethod
-    def criar_pedido(db: Session) -> Pedido:
-        """Cria um novo pedido vazio"""
-        pedido = Pedido()
+    def criar_pedido(db: Session, cliente_id: str | None = None) -> Pedido:
+        """Cria um novo pedido vazio."""
+        pedido = Pedido(cliente_id=cliente_id)
         db.add(pedido)
         db.commit()
         db.refresh(pedido)
@@ -46,13 +46,8 @@ class OperacoesPedido:
 
         # Validar estoque
         if produto.estoque < quantidade:
-            return (
-                False,
-                None,
-                f"Estoque insuficiente. Disponível: {produto.estoque}"
-            )
+            return False, None, f"Estoque insuficiente. Disponível: {produto.estoque}"
 
-        # Reservar estoque e criar item do pedido em transação atômica
         try:
             produto_query = db.query(Produto).filter(Produto.id == produto_id)
             try:
@@ -64,13 +59,8 @@ class OperacoesPedido:
                 return False, None, "Produto não encontrado"
 
             if produto.estoque < quantidade:
-                return (
-                    False,
-                    None,
-                    f"Estoque insuficiente. Disponível: {produto.estoque}"
-                )
+                return False, None, f"Estoque insuficiente. Disponível: {produto.estoque}"
 
-            # Reservar (decrementar estoque imediatamente)
             produto.estoque -= quantidade
             db.add(produto)
 
@@ -83,12 +73,9 @@ class OperacoesPedido:
                 subtotal=produto.preco * quantidade
             )
             db.add(item)
-
-            # Commit atômico
             db.commit()
             db.refresh(item)
 
-            # Recalcular subtotal do pedido
             OperacoesPedido._recalcular_subtotal(pedido_id, db)
 
             return True, item, "Item adicionado com sucesso"
@@ -97,19 +84,24 @@ class OperacoesPedido:
             return False, None, f"Erro ao adicionar item: {str(e)}"
 
     @staticmethod
-    def remover_item(item_id: int, db: Session) -> tuple[bool, str]:
-        """Remove um item do pedido"""
+    def remover_item(item_id: int, db: Session, pedido_id: int | None = None) -> tuple[bool, str]:
+        """Remove um item do pedido."""
         item = db.query(ItemPedido).filter(ItemPedido.id == item_id).first()
         if not item:
             return False, "Item não encontrado"
+
+        if pedido_id is not None and int(item.pedido_id) != pedido_id:
+            return False, "Item não pertence ao pedido informado"
+
         pedido = db.query(Pedido).filter(Pedido.id == item.pedido_id).first()
         if not pedido:
             return False, "Pedido não encontrado"
         pedido = cast(Any, pedido)
+
         if pedido.status != StatusPedido.CRIADO:
             return False, "Não é possível remover itens de um pedido que não está em criação"
 
-        pedido_id = int(item.pedido_id)
+        pedido_id_real = int(item.pedido_id)
 
         # Restaurar estoque do produto reservado
         produto = db.query(Produto).filter(Produto.id == item.produto_id).first()
@@ -121,8 +113,7 @@ class OperacoesPedido:
         db.delete(item)
         db.commit()
 
-        # Recalcular subtotal
-        OperacoesPedido._recalcular_subtotal(pedido_id, db)
+        OperacoesPedido._recalcular_subtotal(pedido_id_real, db)
 
         return True, "Item removido com sucesso"
 
@@ -151,7 +142,7 @@ class OperacoesPedido:
             return False, "Cupom só pode ser aplicado a pedido em criação"
 
         valido, desconto, mensagem = OperacoesCupom.validar_cupom(
-            codigo_cupom, pedido.subtotal, db
+            codigo_cupom, pedido.subtotal, db, customer_id=pedido.cliente_id
         )
 
         if not valido:
@@ -208,15 +199,14 @@ class OperacoesPedido:
         pedido.total = (pedido.subtotal - pedido.desconto) + taxa_entrega
         db.commit()
 
-        return True, f"Tipo definido para {tipo.value}, taxa: R${taxa_entrega:.2f}"
+        return True, f"Tipo de pedido: {tipo.value}, taxa: R${taxa_entrega:.2f}"
 
     @staticmethod
     def _calcular_taxa_entrega(tipo: TipoPedido, subtotal_com_desconto: float) -> float:
         """
-        Calcula a taxa de entrega baseado no tipo de pedido e subtotal com desconto aplicado
-        As regras são:
+        Calcula a taxa de entrega:
         - Retirada ou consumo local: R$0
-        - Entrega: R$10 (grátis se subtotal >= R$50)
+        - Entrega: R$10, gratis se subtotal com desconto >= R$50
         """
         if tipo == TipoPedido.RETIRADA or tipo == TipoPedido.CONSUMO_LOCAL:
             return 0.0
@@ -230,13 +220,15 @@ class OperacoesPedido:
 
     @staticmethod
     def finalizar_pedido(pedido_id: int, db: Session, codigo_cupom: str | None = None) -> tuple[bool, str]:
-        """ Finaliza o pedido (muda status para PAGO) e decrementa o estoque dos produtos """
-        # Executar validações e alterações em transação atômica
+        """Finaliza o pedido, mudando status para PAGO"""
         try:
-            with db.begin():
+            txn_ctx = db.begin_nested() if db.in_transaction() else db.begin()
+            cupom_para_incrementar = None
+
+            with txn_ctx:
                 pedido_query = db.query(Pedido).filter(Pedido.id == pedido_id)
                 try:
-                    pedido = pedido_query.with_for_update().first() 
+                    pedido = pedido_query.with_for_update().first()  # type: ignore[attr-defined]
                 except Exception:
                     pedido = pedido_query.first()
 
@@ -245,43 +237,53 @@ class OperacoesPedido:
                 pedido = cast(Any, pedido)
 
                 if pedido.status != StatusPedido.CRIADO:
-                    return False, "Pedido não está em criação"
+                    return False, "Pedido não esta em criacao"
 
                 if pedido.tipo is None:
                     return False, "Defina o tipo do pedido antes de finalizar"
 
-                # Revalidar/aplicar cupom dentro da transação
+                itens_count = db.query(ItemPedido).filter(ItemPedido.pedido_id == pedido_id).count()
+                if itens_count == 0:
+                    return False, "Pedido precisa ter pelo menos um item para finalizar"
+
                 if codigo_cupom:
                     valido, desconto, mensagem = OperacoesCupom.validar_cupom(
-                        codigo_cupom, pedido.subtotal, db
+                        codigo_cupom, pedido.subtotal, db, customer_id=pedido.cliente_id
                     )
                     if not valido:
                         return False, mensagem
 
                     cupom = db.query(Cupom).filter(Cupom.codigo == codigo_cupom).first()
                     if not cupom:
-                        return False, "Cupom não encontrado"
+                        return False, "Cupom Não encontrado"
                     cupom = cast(Any, cupom)
                     pedido.cupom_id = cupom.id
                     pedido.desconto = desconto
+                    cupom_para_incrementar = cupom
                 elif pedido.cupom_id:
-                    # Revalidar cupom previamente aplicado
                     cupom = db.query(Cupom).filter(Cupom.id == pedido.cupom_id).first()
                     if not cupom:
-                        return False, "Cupom não encontrado"
-                    valido, desconto, mensagem = OperacoesCupom.validar_cupom(cupom.codigo, pedido.subtotal, db)
+                        return False, "Cupom Não encontrado"
+                    cupom = cast(Any, cupom)
+                    valido, desconto, mensagem = OperacoesCupom.validar_cupom(
+                        cupom.codigo, pedido.subtotal, db, customer_id=pedido.cliente_id
+                    )
                     if not valido:
                         return False, mensagem
                     pedido.desconto = desconto
+                    cupom_para_incrementar = cupom
 
-                # Recalcular taxa de entrega se necessário
                 if pedido.tipo is not None:
-                    pedido.taxa_entrega = OperacoesPedido._calcular_taxa_entrega(pedido.tipo, pedido.subtotal - pedido.desconto)
+                    pedido.taxa_entrega = OperacoesPedido._calcular_taxa_entrega(
+                        pedido.tipo, pedido.subtotal - pedido.desconto
+                    )
 
-                # Recalcular total
                 pedido.total = (pedido.subtotal - pedido.desconto) + pedido.taxa_entrega
 
-                # Marcar como pago
+                if cupom_para_incrementar is not None:
+                    cupom_para_incrementar.usos = (cupom_para_incrementar.usos or 0) + 1
+                    db.add(cupom_para_incrementar)
+
                 pedido.status = StatusPedido.PAGO
 
             return True, f"Pedido finalizado. Total: R${pedido.total:.2f}"
@@ -294,7 +296,7 @@ class OperacoesPedido:
 
     @staticmethod
     def cancelar_pedido(pedido_id: int, db: Session) -> tuple[bool, str]:
-        """Cancela um pedido (só se ainda não foi pago)"""
+        """Cancela um pedido, desde que ainda Não tenha sido pago"""
         pedido = db.query(Pedido).filter(Pedido.id == pedido_id).first()
         if not pedido:
             return False, "Pedido não encontrado"

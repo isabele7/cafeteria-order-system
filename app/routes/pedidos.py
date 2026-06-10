@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+﻿from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Pedido, TipoPedido
@@ -69,7 +69,7 @@ def remover_item(
     item_id: int,
     db: Session = Depends(get_db)
 ):
-    sucesso, mensagem = OperacoesPedido.remover_item(item_id, db)
+    sucesso, mensagem = OperacoesPedido.remover_item(item_id, db, pedido_id=pedido_id)
 
     if not sucesso:
         raise HTTPException(status_code=400, detail=mensagem)
