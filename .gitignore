@@ -51,8 +51,12 @@ coverage.xml
 # Environment
 .env
 .env.local
+wsl_env
 
 # Mutation testing
 mutmut_results/
+.mutmut-cache
 
 desktop.ini
+
+*.bak
