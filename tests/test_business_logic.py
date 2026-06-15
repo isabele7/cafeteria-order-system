@@ -1,6 +1,6 @@
 ﻿from datetime import datetime, timedelta
 from app.models import Cupom, Pedido, StatusPedido, TipoPedido
-from app.services.pedido_service import OperacoesPedido
+from app.services.pedido_service import OperacoesPedido, OperacoesCupom
 
 # Verifica se há itens antes de finalizar o pedido
 def test_nao_finaliza_pedido_sem_itens(db):
@@ -168,3 +168,23 @@ def test_pedido_cancelado_nao_aceita_alteracoes(db, produtos_base, cupons_base):
     ok_finalizar, _ = OperacoesPedido.finalizar_pedido(pedido.id, db)
 
     assert not any([ok_item, ok_remove, ok_cupom, ok_remover_cupom, ok_tipo, ok_finalizar])
+
+# Testa criação de cupom pelo serviço e validação de campos obrigatórios
+def test_criar_cupom_pelo_servico_salva_no_banco(db):
+    cupom = OperacoesCupom.criar_cupom("NOVO10", 10.0, minimo=30.0, db=db)
+
+    assert cupom.id is not None
+    assert cupom.codigo == "NOVO10"
+    assert cupom.desconto == 10.0
+    assert cupom.minimo == 30.0
+
+# Verifica se apenas cupons ativos são listados
+def test_listar_cupons_retorna_apenas_ativos(db):
+    ativo = Cupom(codigo="ATIVO", desconto=10.0, minimo=0.0, ativo=True)
+    inativo = Cupom(codigo="INATIVO_LISTA", desconto=10.0, minimo=0.0, ativo=False)
+    db.add_all([ativo, inativo])
+    db.commit()
+
+    cupons = OperacoesCupom.listar_cupons(db)
+
+    assert [cupom.codigo for cupom in cupons] == ["ATIVO"]
