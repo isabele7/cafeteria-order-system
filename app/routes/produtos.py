@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+﻿from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from app.database import get_db
@@ -24,7 +24,7 @@ class RespostaProduto(BaseModel):
     estoque: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 @router.post("", response_model=RespostaProduto, status_code=201)
 def criar_produto(produto: CriarProduto, db: Session = Depends(get_db)):

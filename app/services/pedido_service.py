@@ -1,6 +1,7 @@
-﻿from sqlalchemy.orm import Session
-from app.models import Pedido, ItemPedido, Produto, StatusPedido, TipoPedido, Cupom
+from sqlalchemy.orm import Session
+from app.models import Pedido, ItemPedido, Produto, StatusPedido, TipoPedido, Cupom, Pagamento, StatusPagamento
 from app.services.cupom_service import OperacoesCupom
+from app.services.pagamento_service import OperacoesPagamento
 from typing import Any, cast
 
 class OperacoesPedido:
@@ -279,6 +280,22 @@ class OperacoesPedido:
                     )
 
                 pedido.total = (pedido.subtotal - pedido.desconto) + pedido.taxa_entrega
+
+                pagamento = Pagamento(
+                    pedido_id=pedido.id,
+                    valor=pedido.total,
+                    status=StatusPagamento.PENDENTE,
+                )
+                db.add(pagamento)
+
+                pagamento_ok = OperacoesPagamento.processar_pagamento(pagamento, db)
+                if not pagamento_ok:
+                    pagamento.status = StatusPagamento.FALHOU
+                    db.add(pagamento)
+                    return False, "Pagamento falhou"
+
+                pagamento.status = StatusPagamento.CONFIRMADO
+                db.add(pagamento)
 
                 if cupom_para_incrementar is not None:
                     cupom_para_incrementar.usos = (cupom_para_incrementar.usos or 0) + 1

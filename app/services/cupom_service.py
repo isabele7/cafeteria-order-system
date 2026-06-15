@@ -30,11 +30,14 @@ class OperacoesCupom:
         ativo_de = cast(datetime | None, cupom.ativo_de)
         ativo_ate = cast(datetime | None, cupom.ativo_ate)
         if ativo_de is not None and now < ativo_de:
-            return False, 0, "Cupom ainda não valido"
+            return False, 0, "Cupom ainda não válido"
         if ativo_ate is not None and now > ativo_ate:
             return False, 0, "Cupom expirado"
 
-        if cupom.max_usos_por_cliente and customer_id is not None:
+        if cupom.max_usos_por_cliente:
+            if not customer_id:
+                return False, 0, "Cliente deve ser identificado para usar este cupom"
+
             usos_cliente = (
                 db.query(Pedido)
                 .filter(
