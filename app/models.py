@@ -91,3 +91,26 @@ class ItemPedido(Base):
 
     def __repr__(self):
         return f"<ItemPedido(pedido_id={self.pedido_id}, produto_id={self.produto_id}, qtd={self.quantidade})>"
+
+class StatusPagamento(str, Enum):
+    PENDENTE = "pendente"
+    CONFIRMADO = "confirmado"
+    FALHOU = "falhou"
+
+# Colunas de pagamento: id, pedido_id, valor, status, criado_em
+class Pagamento(Base):
+    __tablename__ = "pagamentos"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    pedido_id: Mapped[int] = mapped_column(ForeignKey("pedidos.id"), nullable=False, index=True)
+    valor: Mapped[float] = mapped_column(Float, nullable=False)
+    status: Mapped[StatusPagamento] = mapped_column(
+        SQLEnum(StatusPagamento),
+        default=StatusPagamento.PENDENTE,
+        nullable=False,
+    )
+    referencia_provedor: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    criado_em: Mapped[SQLDateTime] = mapped_column(SQLDateTime, server_default=func.now())
+
+    def __repr__(self):
+        return f"<Pagamento(pedido_id={self.pedido_id}, valor={self.valor}, status={self.status})>"
