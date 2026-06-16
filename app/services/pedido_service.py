@@ -52,7 +52,7 @@ class OperacoesPedido:
         try:
             produto_query = db.query(Produto).filter(Produto.id == produto_id)
             try:
-                produto = produto_query.with_for_update().first()  # type: ignore[attr-defined]
+                produto = produto_query.with_for_update().first()  
             except Exception:
                 produto = produto_query.first()
 
