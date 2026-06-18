@@ -2,6 +2,7 @@
 from app.models import Cupom, Pedido, Produto, StatusPedido, TipoPedido
 from app.services.cupom_service import OperacoesCupom
 from app.services.pedido_service import OperacoesPedido
+from datetime import datetime as real_datetime, timedelta
 
 def criar_cupom(db, codigo="BVA10", desconto=10.0, minimo=50.0, ativo=True):
     cupom = Cupom(codigo=codigo, desconto=desconto, minimo=minimo, ativo=ativo)
@@ -222,3 +223,57 @@ def test_cliente_no_limite_nao_pode_usar_cupom(db):
     assert valido is False
     assert desconto == 0
     assert msg == "Limite de uso por cliente atingido"
+
+# BVA - expiração de cupom: um minuto antes, exatamente na hora e um minuto depois.
+def criar_cupom_expira_as_15h(db):
+    cupom = Cupom(
+        codigo="EXPIRA_15H",
+        desconto=10.0,
+        minimo=0.0,
+        ativo=True,
+        ativo_ate=real_datetime(2026, 6, 14, 15, 0, 0),
+    )
+    db.add(cupom)
+    db.commit()
+    db.refresh(cupom)
+    return cupom
+
+def congelar_horario(monkeypatch, frozen_now):
+    from app.services import cupom_service
+
+    class FrozenDatetime(real_datetime):
+        @classmethod
+        def utcnow(cls):
+            return frozen_now
+
+    monkeypatch.setattr(cupom_service, "datetime", FrozenDatetime)
+
+def test_bva_cupom_valido_um_minuto_antes_da_expiracao(db, monkeypatch):
+    criar_cupom_expira_as_15h(db)
+    congelar_horario(monkeypatch, real_datetime(2026, 6, 14, 14, 59, 0))
+
+    valido, desconto, msg = OperacoesCupom.validar_cupom("EXPIRA_15H", 100.0, db)
+
+    assert valido is True
+    assert desconto == 10.0
+    assert msg == "Cupom aplicado com sucesso"
+
+def test_bva_cupom_valido_exatamente_na_expiracao(db, monkeypatch):
+    criar_cupom_expira_as_15h(db)
+    congelar_horario(monkeypatch, real_datetime(2026, 6, 14, 15, 0, 0))
+
+    valido, desconto, msg = OperacoesCupom.validar_cupom("EXPIRA_15H", 100.0, db)
+
+    assert valido is True
+    assert desconto == 10.0
+    assert msg == "Cupom aplicado com sucesso"
+
+def test_bva_cupom_expirado_um_minuto_depois_da_expiracao(db, monkeypatch):
+    criar_cupom_expira_as_15h(db)
+    congelar_horario(monkeypatch, real_datetime(2026, 6, 14, 15, 1, 0))
+
+    valido, desconto, msg = OperacoesCupom.validar_cupom("EXPIRA_15H", 100.0, db)
+
+    assert valido is False
+    assert desconto == 0
+    assert msg == "Cupom expirado"
