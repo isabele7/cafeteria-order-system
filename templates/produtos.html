@@ -1,0 +1,58 @@
+﻿{% extends "base.html" %}
+{% block title %}Produtos | Cafeteria{% endblock %}
+{% block content %}
+<section class="page-head">
+    <div>
+        <p class="eyebrow">Catálogo operacional</p>
+        <h1>Produtos</h1>
+    </div>
+</section>
+
+<section class="form-band">
+    <h2>Novo Produto</h2>
+    <form class="inline-form" action="/painel/produtos" method="post">
+        <label>Nome <input name="nome" required placeholder="Cappuccino"></label>
+        <label>Preço <input name="preco" required type="number" step="0.01" min="0" placeholder="8.50"></label>
+        <label>Estoque <input name="estoque" required type="number" min="0" value="0"></label>
+        <button class="button primary" type="submit">Cadastrar</button>
+    </form>
+</section>
+
+<section class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Produto</th>
+                <th>Preço</th>
+                <th>Estoque</th>
+                <th>Status</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for produto in produtos %}
+            <tr class="{{ 'row-danger' if produto.estoque == 0 else 'row-warning' if produto.estoque <= 3 else '' }}">
+                <form action="/painel/produtos/{{ produto.id }}/editar" method="post">
+                    <td><input name="nome" value="{{ produto.nome }}" required></td>
+                    <td><input name="preco" type="number" step="0.01" min="0" value="{{ '%.2f'|format(produto.preco) }}" required></td>
+                    <td><input name="estoque" type="number" min="0" value="{{ produto.estoque }}" required></td>
+                    <td>
+                        {% if produto.estoque == 0 %}
+                            <span class="badge cancelado">sem estoque</span>
+                        {% elif produto.estoque <= 3 %}
+                            <span class="badge alerta">baixo</span>
+                        {% else %}
+                            <span class="badge ativo">disponível</span>
+                        {% endif %}
+                    </td>
+                    <td class="actions">
+                        <button class="button small" type="submit">Salvar</button>
+                    </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="empty">Nenhum produto cadastrado.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endblock %}

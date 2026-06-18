@@ -1,0 +1,82 @@
+﻿{% extends "base.html" %}
+{% block title %}Início | Cafeteria{% endblock %}
+{% block content %}
+<section class="page-head">
+    <div>
+        <h1>Início</h1>
+    </div>
+    <a class="button primary" href="/painel/novo-pedido">Novo Pedido</a>
+</section>
+
+<section class="metrics-grid">
+    <a class="metric-card" href="/painel/pedidos?status=criado">
+        <span>Pedidos em criação</span>
+        <strong>{{ pedidos_criados }}</strong>
+    </a>
+    <a class="metric-card" href="/painel/pedidos?status=pago">
+        <span>Pedidos pagos hoje</span>
+        <strong>{{ pedidos_pagos_hoje }}</strong>
+    </a>
+    <a class="metric-card" href="/painel/cupons">
+        <span>Cupons ativos</span>
+        <strong>{{ cupons_ativos }}</strong>
+    </a>
+    <a class="metric-card warning" href="/painel/produtos">
+        <span>Produtos com estoque baixo</span>
+        <strong>{{ produtos_baixo_estoque|length }}</strong>
+    </a>
+</section>
+
+<section class="shortcut-grid">
+    <a class="shortcut" href="/painel/produtos">
+        <span class="shortcut-icon">•</span>
+        <h2>Produtos</h2>
+        <p>Cadastre itens, ajuste preços e acompanhe estoque.</p>
+    </a>
+    <a class="shortcut" href="/painel/cupons">
+        <span class="shortcut-icon">%</span>
+        <h2>Cupons</h2>
+        <p>Veja validade, subtotal mínimo, limites por cliente e usos.</p>
+    </a>
+    <a class="shortcut" href="/painel/pedidos">
+        <span class="shortcut-icon">#</span>
+        <h2>Pedidos</h2>
+        <p>Acompanhe status, pagamento, cancelamento e detalhes.</p>
+    </a>
+</section>
+
+<section class="split-section">
+    <div>
+        <div class="section-title">
+            <h2>Estoque baixo</h2>
+            <a href="/painel/produtos">ver produtos</a>
+        </div>
+        <div class="list-panel">
+            {% for produto in produtos_baixo_estoque %}
+                <div class="list-row">
+                    <span>{{ produto.nome }}</span>
+                    <strong class="{{ 'danger-text' if produto.estoque == 0 else '' }}">{{ produto.estoque }} un.</strong>
+                </div>
+            {% else %}
+                <p class="muted">Nenhum produto em atenção agora.</p>
+            {% endfor %}
+        </div>
+    </div>
+    <div>
+        <div class="section-title">
+            <h2>Pedidos recentes</h2>
+            <a href="/painel/pedidos">ver todos</a>
+        </div>
+        <div class="list-panel">
+            {% for pedido in pedidos_recentes %}
+                <a class="list-row" href="/painel/pedidos/{{ pedido.id }}">
+                    <span>Pedido #{{ pedido.id }}</span>
+                    <strong class="badge {{ pedido.status.value }}">{{ pedido.status.value }}</strong>
+                </a>
+            {% else %}
+                <p class="muted">Nenhum pedido criado ainda.</p>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endblock %}

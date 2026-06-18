@@ -1,0 +1,60 @@
+﻿{% extends "base.html" %}
+{% block title %}Pedidos | Cafeteria{% endblock %}
+{% block content %}
+<section class="page-head">
+    <div>
+        <p class="eyebrow">Acompanhamento</p>
+        <h1>Pedidos</h1>
+    </div>
+    <a class="button primary" href="/painel/novo-pedido">Novo Pedido</a>
+</section>
+
+<nav class="filters">
+    <a class="{{ 'active' if not status_atual else '' }}" href="/painel/pedidos">Todos</a>
+    <a class="{{ 'active' if status_atual == 'criado' else '' }}" href="/painel/pedidos?status=criado">Criado</a>
+    <a class="{{ 'active' if status_atual == 'pago' else '' }}" href="/painel/pedidos?status=pago">Pago</a>
+    <a class="{{ 'active' if status_atual == 'cancelado' else '' }}" href="/painel/pedidos?status=cancelado">Cancelado</a>
+</nav>
+
+<section class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Pedido</th>
+                <th>Cliente/CPF</th>
+                <th>Tipo</th>
+                <th>Status</th>
+                <th>Total</th>
+                <th>Data</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for pedido in pedidos %}
+            <tr>
+                <td>#{{ pedido.id }}</td>
+                <td>{{ pedido.cliente_id or 'não informado' }}</td>
+                <td>{{ pedido.tipo.value if pedido.tipo else 'não definido' }}</td>
+                <td><span class="badge {{ pedido.status.value }}">{{ pedido.status.value }}</span></td>
+                <td>R${{ '%.2f'|format(pedido.total) }}</td>
+                <td>{{ pedido.criado_em.strftime('%d/%m/%Y %H:%M') if pedido.criado_em else '-' }}</td>
+                <td class="actions">
+                    <a class="button small" href="/painel/pedidos/{{ pedido.id }}">Detalhes</a>
+                    {% if pedido.status.value == 'criado' %}
+                        <a class="button ghost small" href="/painel/pedidos/{{ pedido.id }}/montar">Continuar</a>
+                        <form action="/painel/pedidos/{{ pedido.id }}/cancelar" method="post">
+                            <button class="button danger small" type="submit">Cancelar</button>
+                        </form>
+                    {% else %}
+                        <button class="button ghost small" disabled>Cancelar</button>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" class="empty">Nenhum pedido cadastrado.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endblock %}
+
