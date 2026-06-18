@@ -1,9 +1,11 @@
-import pytest
+﻿import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
-from app.database import Base
-from app.models import Produto, Cupom
+from app.database import Base, get_db
+from app.main import app
+from app.models import Cupom, Produto
 
 # Banco de dados em memória para testes
 SQLALCHEMY_DATABASE_URL = "sqlite://"
@@ -18,8 +20,24 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 def db():
     """Fixture que fornece uma sessão de banco de dados limpa para cada teste"""
     Base.metadata.create_all(bind=engine)
-    yield TestingSessionLocal()
-    Base.metadata.drop_all(bind=engine)
+    session = TestingSessionLocal()
+    try:
+        yield session
+    finally:
+        session.close()
+        Base.metadata.drop_all(bind=engine)
+
+@pytest.fixture(scope="function")
+def client(db):
+    """Fixture que fornece TestClient usando o banco em memoria dos testes"""
+    def override_get_db():
+        yield db
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        yield TestClient(app)
+    finally:
+        app.dependency_overrides.clear()
 
 @pytest.fixture
 def produtos_base(db):
