@@ -1,0 +1,41 @@
+﻿<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Cafeteria{% endblock %}</title>
+    <link rel="icon" href="{{ url_for('static', path='/favicon.svg') }}?v=4" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}">
+    <script src="https://unpkg.com/htmx.org@1.9.12" defer></script>
+</head>
+<body>
+    <aside class="sidebar">
+        <a class="brand" href="/painel">
+            <span class="brand-mark">C</span>
+            <span>
+                <strong>Cafeteria</strong>
+                <small>painel de pedidos</small>
+            </span>
+        </a>
+        <nav class="nav">
+            <a class="{{ 'active' if active == 'dashboard' else '' }}" href="/painel">Início</a>
+            <a class="{{ 'active' if active == 'produtos' else '' }}" href="/painel/produtos">Produtos</a>
+            <a class="{{ 'active' if active == 'cupons' else '' }}" href="/painel/cupons">Cupons</a>
+            <a class="{{ 'active' if active == 'pedidos' else '' }}" href="/painel/pedidos">Pedidos</a>
+            <a class="primary-link {{ 'active' if active == 'novo_pedido' else '' }}" href="/painel/novo-pedido">Novo Pedido</a>
+        </nav>
+    </aside>
+    <main class="shell">
+        {% if request.query_params.get('mensagem') %}
+            <div class="alert success">{{ request.query_params.get('mensagem') }}</div>
+        {% endif %}
+        {% if request.query_params.get('erro') %}
+            <div class="alert error">{{ request.query_params.get('erro') }}</div>
+        {% endif %}
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>
