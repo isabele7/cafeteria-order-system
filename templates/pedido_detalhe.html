@@ -1,0 +1,74 @@
+﻿{% extends "base.html" %}
+{% block title %}Pedido #{{ pedido.id }} | Cafeteria{% endblock %}
+{% block content %}
+<section class="page-head">
+    <div>
+        <p class="eyebrow">Detalhes do pedido</p>
+        <h1>Pedido #{{ pedido.id }}</h1>
+    </div>
+    <span class="badge {{ pedido.status.value }}">{{ pedido.status.value }}</span>
+</section>
+
+<section class="detail-grid">
+    <article class="detail-panel">
+        <h2>Dados do pedido</h2>
+        <dl class="summary-list">
+            <div><dt>Cliente/CPF</dt><dd>{{ pedido.cliente_id or 'não informado' }}</dd></div>
+            <div><dt>Tipo</dt><dd>{{ pedido.tipo.value if pedido.tipo else 'não definido' }}</dd></div>
+            <div><dt>Cupom</dt><dd>{{ pedido.cupom.codigo if pedido.cupom else 'não aplicado' }}</dd></div>
+            <div><dt>Subtotal</dt><dd>R${{ '%.2f'|format(pedido.subtotal) }}</dd></div>
+            <div><dt>Desconto</dt><dd>R${{ '%.2f'|format(pedido.desconto) }}</dd></div>
+            <div><dt>Taxa</dt><dd>R${{ '%.2f'|format(pedido.taxa_entrega) }}</dd></div>
+            <div class="total"><dt>Total</dt><dd>R${{ '%.2f'|format(pedido.total) }}</dd></div>
+        </dl>
+        <div class="actions end">
+            {% if pedido.status.value == 'criado' %}
+                <a class="button" href="/painel/pedidos/{{ pedido.id }}/montar">Editar pedido</a>
+                <form action="/painel/pedidos/{{ pedido.id }}/cancelar" method="post">
+                    <button class="button ghost" type="submit">Cancelar</button>
+                </form>
+            {% else %}
+                <button class="button ghost" disabled>Ações bloqueadas</button>
+            {% endif %}
+        </div>
+    </article>
+
+    <article class="detail-panel">
+        <h2>Itens</h2>
+        {% for item in itens %}
+            <div class="order-line readonly">
+                <div>
+                    <strong>{{ item.produto.nome if item.produto else 'Produto' }}</strong>
+                    <span>{{ item.quantidade }} × R${{ '%.2f'|format(item.preco_unitario) }}</span>
+                </div>
+                <strong>R${{ '%.2f'|format(item.subtotal) }}</strong>
+            </div>
+        {% else %}
+            <p class="muted">Pedido sem itens.</p>
+        {% endfor %}
+    </article>
+
+    <article class="detail-panel">
+        <h2>Pagamento</h2>
+        {% for pagamento in pagamentos %}
+            <div class="list-row">
+                <span>Pagamento #{{ pagamento.id }} · R${{ '%.2f'|format(pagamento.valor) }}</span>
+                <strong class="badge {{ pagamento.status.value }}">{{ pagamento.status.value }}</strong>
+            </div>
+        {% else %}
+            <p class="muted">Pagamento ainda não registrado.</p>
+        {% endfor %}
+    </article>
+
+    <article class="detail-panel">
+        <h2>Histórico</h2>
+        <ol class="timeline">
+            <li>Pedido criado</li>
+            {% if pedido.cupom %}<li>Cupom {{ pedido.cupom.codigo }} aplicado</li>{% endif %}
+            {% if pagamentos %}<li>Pagamento {{ pagamentos[0].status.value }}</li>{% endif %}
+            {% if pedido.status.value == 'pago' %}<li>Pedido pago</li>{% endif %}
+            {% if pedido.status.value == 'cancelado' %}<li>Pedido cancelado</li>{% endif %}
+        </ol>
+    </article>
+</section>
+{% endblock %}

@@ -1,0 +1,112 @@
+﻿{% extends "base.html" %}
+{% block title %}Novo Pedido | Cafeteria{% endblock %}
+{% block content %}
+<section class="page-head">
+    <div>
+        <p class="eyebrow">Atendimento no balcão</p>
+        <h1>{{ 'Pedido #' ~ pedido.id if pedido is defined else 'Novo Pedido' }}</h1>
+    </div>
+    {% if pedido is defined %}
+        <span class="badge {{ pedido.status.value }}">{{ pedido.status.value }}</span>
+    {% endif %}
+</section>
+
+{% if pedido is not defined %}
+<section class="start-order">
+    <h2>Iniciar atendimento</h2>
+    <form class="inline-form" action="/painel/pedidos" method="post">
+        <label>CPF do cliente <input name="cliente_id" placeholder="000.000.000-00"></label>
+        <button class="button primary" type="submit">Criar Pedido</button>
+    </form>
+    <p class="muted">O CPF é opcional, mas é exigido para cupoms com limite de uso por cliente.</p>
+</section>
+{% else %}
+{% set bloqueado = pedido.status.value != 'criado' %}
+<section class="order-workspace">
+    <div class="products-panel">
+        <div class="section-title">
+            <h2>Produtos disponíveis</h2>
+        </div>
+        <input class="search-input" type="search" placeholder="Buscar produto..." oninput="document.querySelectorAll('[data-produto]').forEach(row => row.hidden = !row.dataset.produto.includes(this.value.toLowerCase()))">
+        <div class="product-list">
+            {% for produto in produtos %}
+            <form class="product-item {{ 'disabled' if produto.estoque == 0 or bloqueado else '' }}" action="/painel/pedidos/{{ pedido.id }}/itens" method="post" data-produto="{{ produto.nome|lower }}">
+                <div>
+                    <strong>{{ produto.nome }}</strong>
+                    <span>R${{ '%.2f'|format(produto.preco) }} · estoque {{ produto.estoque }}</span>
+                </div>
+                <input type="hidden" name="produto_id" value="{{ produto.id }}">
+                <input class="qty" name="quantidade" type="number" min="1" max="{{ produto.estoque }}" value="1" {{ 'disabled' if produto.estoque == 0 or bloqueado else '' }}>
+                <button class="button small" type="submit" {{ 'disabled' if produto.estoque == 0 or bloqueado else '' }}>Adicionar</button>
+            </form>
+            {% else %}
+                <p class="muted">Cadastre produtos antes de montar pedidos.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="items-panel">
+        <div class="section-title">
+            <h2>Itens do pedido</h2>
+            <span>{{ itens|length }} itens</span>
+        </div>
+        <div class="item-list">
+            {% for item in itens %}
+            <div class="order-line">
+                <div>
+                    <strong>{{ item.produto.nome if item.produto else 'Produto' }}</strong>
+                    <span>{{ item.quantidade }} × R${{ '%.2f'|format(item.preco_unitario) }}</span>
+                </div>
+                <strong>R${{ '%.2f'|format(item.subtotal) }}</strong>
+                <form action="/painel/pedidos/{{ pedido.id }}/itens/{{ item.id }}/remover" method="post">
+                    <button class="icon-button" title="Remover item" type="submit" {{ 'disabled' if bloqueado else '' }}>×</button>
+                </form>
+            </div>
+            {% else %}
+                <p class="muted">Nenhum item adicionado.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <aside class="summary-panel">
+        <h2>Resumo</h2>
+        <dl class="summary-list">
+            <div><dt>Cliente/CPF</dt><dd>{{ pedido.cliente_id or 'não informado' }}</dd></div>
+            <div><dt>Subtotal</dt><dd>R${{ '%.2f'|format(pedido.subtotal) }}</dd></div>
+            <div><dt>Desconto</dt><dd>- R${{ '%.2f'|format(pedido.desconto) }}</dd></div>
+            <div><dt>Taxa de entrega</dt><dd>R${{ '%.2f'|format(pedido.taxa_entrega) }}</dd></div>
+            <div class="total"><dt>Total</dt><dd>R${{ '%.2f'|format(pedido.total) }}</dd></div>
+        </dl>
+
+        <form class="stack-form" action="/painel/pedidos/{{ pedido.id }}/tipo" method="post">
+            <label>Tipo do pedido
+                <select name="tipo" {{ 'disabled' if bloqueado else '' }}>
+                    <option value="retirada" {{ 'selected' if pedido.tipo and pedido.tipo.value == 'retirada' else '' }}>Retirada</option>
+                    <option value="entrega" {{ 'selected' if pedido.tipo and pedido.tipo.value == 'entrega' else '' }}>Entrega</option>
+                    <option value="consumo_local" {{ 'selected' if pedido.tipo and pedido.tipo.value == 'consumo_local' else '' }}>Consumo local</option>
+                </select>
+            </label>
+            <button class="button" type="submit" {{ 'disabled' if bloqueado else '' }}>Atualizar tipo</button>
+        </form>
+
+        <form class="stack-form" action="/painel/pedidos/{{ pedido.id }}/cupom" method="post">
+            <label>Cupom
+                <input name="codigo" placeholder="DESC10" value="{{ cupom.codigo if cupom else '' }}" {{ 'disabled' if bloqueado else '' }}>
+            </label>
+            <p class="hint">Cupons com limite por cliente exigem CPF no pedido.</p>
+            <button class="button" type="submit" {{ 'disabled' if bloqueado else '' }}>Aplicar Cupom</button>
+        </form>
+
+        {% if cupom %}
+        <form action="/painel/pedidos/{{ pedido.id }}/cupom/remover" method="post">
+            <button class="button ghost full" type="submit" {{ 'disabled' if bloqueado else '' }}>Remover cupom {{ cupom.codigo }}</button>
+        </form>
+        {% endif %}
+
+        <form action="/painel/pedidos/{{ pedido.id }}/finalizar" method="post">
+            <button class="button primary full" type="submit" {{ 'disabled' if bloqueado else '' }}>Finalizar Pedido</button>
+        </form>
+    </aside>
+</section>
+{% endif %}
+{% endblock %}
