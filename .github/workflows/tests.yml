@@ -26,11 +26,25 @@ jobs:
       - name: Executar testes e cobertura
         run: python -m pytest
 
-      - name: Executar testes de mutação nos serviços
+      - name: Executar testes de mutação
+        shell: bash
         run: |
-          rm -f .mutmut-cache .mutmut-cache-journal
-          python -m mutmut run \
+            rm -f .mutmut-cache .mutmut-cache-journal
+            python -m mutmut run \
             --CI \
             --paths-to-mutate app/services \
-            --runner "python -m pytest -q tests/test_cupons.py tests/test_pedidos.py tests/test_pagamentos.py tests/test_regras_negocio.py tests/test_bva_particionamento.py"
-          python -m mutmut results
+            --runner "python -m pytest -q -o addopts='' tests/test_cupons.py 
+            tests/test_pedidos.py tests/test_pagamentos.py tests/test_regras_negocio.py 
+            tests/test_bva_particionamento.py" \
+            > mutmut-run.log 2>&1
+            KILLED=$(python -m mutmut result-ids killed | wc -w)
+            SURVIVED=$(python -m mutmut result-ids survived | wc -w)
+            SUSPICIOUS=$(python -m mutmut result-ids suspicious | wc -w)
+            TIMEOUT=$(python -m mutmut result-ids timeout | wc -w)
+            TOTAL=$((KILLED + SURVIVED + SUSPICIOUS + TIMEOUT))
+            SCORE=$(awk "BEGIN { printf \"%.2f\", ($KILLED / $TOTAL) * 100 }")
+            echo "Mutantes mortos: $KILLED"
+            echo "Sobreviventes: $SURVIVED"
+            echo "Suspeitos: $SUSPICIOUS"
+            echo "Timeouts: $TIMEOUT"
+            echo "Score de mutação: $SCORE%"
