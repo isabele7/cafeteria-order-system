@@ -1,0 +1,5 @@
+[run]
+source = app
+omit =
+    app/routes/views.py
+    */app/routes/views.py
