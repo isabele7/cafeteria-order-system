@@ -38,7 +38,7 @@ class TestRootHealth:
         assert response.json() == {"status": "ok"}
 
 # Testes de integração para as rotas de produtos, cupons e pedidos
-class TestProdutosRoutes:
+class TestRotasProdutos:
     def test_criar_produto(self, client):
         data = criar_produto(client, nome="Cafe", preco=5.0, estoque=10)
 
@@ -97,7 +97,7 @@ class TestProdutosRoutes:
         assert response.status_code == 404
         assert response.json()["detail"] == "Produto não encontrado."
 
-class TestCuponsRoutes:
+class TestRotasCupons:
     def test_criar_e_listar_cupom(self, client):
         response = client.post(
             "/api/cupons",
@@ -117,7 +117,7 @@ class TestCuponsRoutes:
         assert response.status_code == 404
         assert response.json()["detail"] == "Cupom não encontrado"
 
-class TestPedidosRoutes:
+class TestRotasPedidos:
     def test_criar_pedido(self, client):
         data = criar_pedido(client)
 

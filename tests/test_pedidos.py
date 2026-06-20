@@ -79,3 +79,113 @@ def test_remover_cupom_com_sucesso(db, produtos_base, cupons_base):
 
     pedido_after = db.query(Pedido).filter(Pedido.id == pedido.id).first()
     assert (pedido_after.cupom_id, pedido_after.desconto) == (None, 0.0)
+
+# Tipo do pedido
+def test_definir_tipo_pedido_inexistente_rejeita(db):
+    ok, msg = OperacoesPedido.definir_tipo_pedido(999, TipoPedido.RETIRADA, db)
+    assert (ok, msg) == (False, "Pedido não encontrado")
+
+# Finalização do pedido
+def test_finalizar_pedido_inexistente_rejeita(db):
+    ok, msg = OperacoesPedido.finalizar_pedido(999, db)
+    assert (ok, msg) == (False, "Pedido não encontrado")
+
+def test_finalizar_pedido_sem_tipo_rejeita(db, produtos_base):
+    pedido = OperacoesPedido.criar_pedido(db)
+    cafe = produtos_base["cafe"]
+
+    ok, item, msg = OperacoesPedido.adicionar_item(pedido.id, cafe.id, 1, db)
+    assert ok, msg
+    assert item is not None
+
+    ok, msg = OperacoesPedido.finalizar_pedido(pedido.id, db)
+
+    assert (ok, msg) == (False, "Defina o tipo do pedido antes de finalizar")
+
+def test_nao_finaliza_pedido_sem_itens(db):
+    pedido = OperacoesPedido.criar_pedido(db)
+    ok, msg = OperacoesPedido.definir_tipo_pedido(pedido.id, TipoPedido.RETIRADA, db)
+    assert ok, msg
+
+    ok, msg = OperacoesPedido.finalizar_pedido(pedido.id, db)
+    pedido_after = db.query(Pedido).filter(Pedido.id == pedido.id).first()
+
+    assert (ok, msg, pedido_after.status) == (
+        False, "Pedido precisa ter pelo menos um item para finalizar", StatusPedido.CRIADO,
+    )
+
+def test_finalizar_pedido_pago_rejeita(db, produtos_base):
+    pedido = OperacoesPedido.criar_pedido(db)
+    cafe = produtos_base["cafe"]
+
+    ok, item, msg = OperacoesPedido.adicionar_item(pedido.id, cafe.id, 1, db)
+    assert ok, msg
+    assert item is not None
+    ok, msg = OperacoesPedido.definir_tipo_pedido(pedido.id, TipoPedido.RETIRADA, db)
+    assert ok, msg
+    ok, msg = OperacoesPedido.finalizar_pedido(pedido.id, db)
+    assert ok, msg
+
+    ok, msg = OperacoesPedido.finalizar_pedido(pedido.id, db)
+    assert (ok, msg) == (False, "Pedido não esta em criacao")
+
+# Cancelamento do pedido
+def test_cancelar_pedido_inexistente_rejeita(db):
+    ok, msg = OperacoesPedido.cancelar_pedido(999, db)
+    assert (ok, msg) == (False, "Pedido não encontrado")
+
+def test_cancelar_pedido_ja_cancelado_rejeita(db):
+    pedido = OperacoesPedido.criar_pedido(db)
+    ok, msg = OperacoesPedido.cancelar_pedido(pedido.id, db)
+    assert ok, msg
+
+    ok, msg = OperacoesPedido.cancelar_pedido(pedido.id, db)
+    assert (ok, msg) == (False, "Pedido já foi cancelado")
+
+# Consulta de pedido
+def test_obter_pedido_existente_e_inexistente(db):
+    pedido = OperacoesPedido.criar_pedido(db)
+
+    assert (
+        OperacoesPedido.obter_pedido(pedido.id, db) is not None,
+        OperacoesPedido.obter_pedido(999, db) is None,
+    ) == (True, True)
+
+# Pedidos pagos ou cancelados não podem sofrer nenhuma alteração
+def test_pedido_pago_nao_aceita_alteracoes(db, produtos_base):
+    pedido = OperacoesPedido.criar_pedido(db)
+    produto = produtos_base["cafe"]
+    ok, item, msg = OperacoesPedido.adicionar_item(pedido.id, produto.id, 10, db)
+    assert ok, msg
+    assert item is not None
+    ok, msg = OperacoesPedido.definir_tipo_pedido(pedido.id, TipoPedido.RETIRADA, db)
+    assert ok, msg
+    ok, msg = OperacoesPedido.finalizar_pedido(pedido.id, db)
+    assert ok, msg
+
+    ok_item, _, _ = OperacoesPedido.adicionar_item(pedido.id, produto.id, 1, db)
+    ok_remove, _ = OperacoesPedido.remover_item(item.id, db, pedido_id=pedido.id)
+    ok_cupom, _ = OperacoesPedido.aplicar_cupom(pedido.id, "DESC10", db)
+    ok_remover_cupom, _ = OperacoesPedido.remover_cupom(pedido.id, db)
+    ok_tipo, _ = OperacoesPedido.definir_tipo_pedido(pedido.id, TipoPedido.ENTREGA, db)
+    ok_cancelar, _ = OperacoesPedido.cancelar_pedido(pedido.id, db)
+
+    assert not any([ok_item, ok_remove, ok_cupom, ok_remover_cupom, ok_tipo, ok_cancelar])
+
+def test_pedido_cancelado_nao_aceita_alteracoes(db, produtos_base):
+    pedido = OperacoesPedido.criar_pedido(db)
+    produto = produtos_base["cafe"]
+    ok, item, msg = OperacoesPedido.adicionar_item(pedido.id, produto.id, 10, db)
+    assert ok, msg
+    assert item is not None
+    ok, msg = OperacoesPedido.cancelar_pedido(pedido.id, db)
+    assert ok, msg
+
+    ok_item, _, _ = OperacoesPedido.adicionar_item(pedido.id, produto.id, 1, db)
+    ok_remove, _ = OperacoesPedido.remover_item(item.id, db, pedido_id=pedido.id)
+    ok_cupom, _ = OperacoesPedido.aplicar_cupom(pedido.id, "DESC10", db)
+    ok_remover_cupom, _ = OperacoesPedido.remover_cupom(pedido.id, db)
+    ok_tipo, _ = OperacoesPedido.definir_tipo_pedido(pedido.id, TipoPedido.ENTREGA, db)
+    ok_finalizar, _ = OperacoesPedido.finalizar_pedido(pedido.id, db)
+
+    assert not any([ok_item, ok_remove, ok_cupom, ok_remover_cupom, ok_tipo, ok_finalizar])
