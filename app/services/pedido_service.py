@@ -256,7 +256,7 @@ class OperacoesPedido:
 
                     cupom = db.query(Cupom).filter(Cupom.codigo == codigo_cupom).first()
                     if not cupom:
-                        return False, "Cupom Não encontrado"
+                        return False, "Cupom não encontrado"
                     cupom = cast(Any, cupom)
                     pedido.cupom_id = cupom.id
                     pedido.desconto = desconto
@@ -264,7 +264,7 @@ class OperacoesPedido:
                 elif pedido.cupom_id:
                     cupom = db.query(Cupom).filter(Cupom.id == pedido.cupom_id).first()
                     if not cupom:
-                        return False, "Cupom Não encontrado"
+                        return False, "Cupom não encontrado"
                     cupom = cast(Any, cupom)
                     valido, desconto, mensagem = OperacoesCupom.validar_cupom(
                         cupom.codigo, pedido.subtotal, db, customer_id=pedido.cliente_id
@@ -313,7 +313,7 @@ class OperacoesPedido:
 
     @staticmethod
     def cancelar_pedido(pedido_id: int, db: Session) -> tuple[bool, str]:
-        """Cancela um pedido, desde que ainda Não tenha sido pago"""
+        """Cancela um pedido, desde que ainda não tenha sido pago"""
         pedido = db.query(Pedido).filter(Pedido.id == pedido_id).first()
         if not pedido:
             return False, "Pedido não encontrado"

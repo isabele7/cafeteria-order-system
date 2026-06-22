@@ -32,27 +32,67 @@
         <tbody>
             {% for produto in produtos %}
             <tr class="{{ 'row-danger' if produto.estoque == 0 else 'row-warning' if produto.estoque <= 3 else '' }}">
-                <form action="/painel/produtos/{{ produto.id }}/editar" method="post">
-                    <td><input name="nome" value="{{ produto.nome }}" required></td>
-                    <td><input name="preco" type="number" step="0.01" min="0" value="{{ '%.2f'|format(produto.preco) }}" required></td>
-                    <td><input name="estoque" type="number" min="0" value="{{ produto.estoque }}" required></td>
-                    <td>
-                        {% if produto.estoque == 0 %}
-                            <span class="badge cancelado">sem estoque</span>
-                        {% elif produto.estoque <= 3 %}
-                            <span class="badge alerta">baixo</span>
-                        {% else %}
-                            <span class="badge ativo">disponível</span>
-                        {% endif %}
-                    </td>
-                    <td class="actions">
-                        <button class="button small" type="submit">Salvar</button>
-                    </td>
+                <td>
+                    <input
+                        form="editar-produto-{{ produto.id }}"
+                        name="nome"
+                        value="{{ produto.nome }}"
+                        required
+                    >
+                </td>
+                <td>
+                    <input
+                        form="editar-produto-{{ produto.id }}"
+                        name="preco"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value="{{ '%.2f'|format(produto.preco) }}"
+                        required
+                    >
+                </td>
+                <td>
+                    <input
+                        form="editar-produto-{{ produto.id }}"
+                        name="estoque"
+                        type="number"
+                        min="0"
+                        value="{{ produto.estoque }}"
+                        required
+                    >
+                </td>
+                <td>
+                    {% if produto.estoque == 0 %}
+                        <span class="badge cancelado">sem estoque</span>
+                    {% elif produto.estoque <= 3 %}
+                        <span class="badge alerta">baixo</span>
+                    {% else %}
+                        <span class="badge ativo">disponível</span>
+                    {% endif %}
+                </td>
+                <td class="actions">
+                    <form
+                        id="editar-produto-{{ produto.id }}"
+                        action="/painel/produtos/{{ produto.id }}/editar"
+                        method="post"
+                    ></form>
+                    <button
+                        class="button small"
+                        type="submit"
+                        form="editar-produto-{{ produto.id }}"
+                    >
+                        Salvar
+                    </button>
+                </td>
             </tr>
             {% else %}
-            <tr><td colspan="5" class="empty">Nenhum produto cadastrado.</td></tr>
+            <tr>
+                <td colspan="5" class="empty">Nenhum produto cadastrado.</td>
+            </tr>
             {% endfor %}
         </tbody>
     </table>
 </section>
 {% endblock %}
+
+

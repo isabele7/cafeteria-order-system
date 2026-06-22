@@ -68,6 +68,20 @@ class TestRotasProdutos:
         assert response.json()["preco"] == 6.5
         assert response.json()["estoque"] == 15
 
+    def test_atualizar_produto_para_nome_duplicado_retorna_409(self, client):
+        cafe = criar_produto(client, nome="Cafe", preco=5.0, estoque=10)
+        criar_produto(client, nome="Brownie", preco=6.0, estoque=0)
+
+        response = client.put(
+            f"/api/produtos/{cafe['id']}",
+            json={"nome": "Brownie"},
+        )
+
+        assert response.status_code == 409
+        assert response.json()["detail"] == (
+            "Já existe outro produto com esse nome."
+        )
+
     def test_criar_produto_duplicado_retorna_409(self, client):
         criar_produto(client, nome="Cafe", preco=5.0, estoque=10)
 
@@ -96,6 +110,14 @@ class TestRotasProdutos:
 
         assert response.status_code == 404
         assert response.json()["detail"] == "Produto não encontrado."
+        
+    def test_obter_produto_existente(self, client):
+        produto = criar_produto(client, nome="Latte", preco=8.0, estoque=5)
+
+        response = client.get(f"/api/produtos/{produto['id']}")
+
+        assert response.status_code == 200
+        assert response.json() == produto
 
 class TestRotasCupons:
     def test_criar_e_listar_cupom(self, client):
@@ -236,3 +258,39 @@ class TestRotasPedidos:
 
         assert response.status_code == 200
         assert response.json()["mensagem"] == "Pedido cancelado com sucesso"
+    
+    def test_remover_item_valido_retorna_204(self, client):
+        produto = criar_produto(client, estoque=10)
+        pedido = criar_pedido(client)
+        item = adicionar_item(client, pedido["id"], produto["id"], 2).json()
+
+        response = client.delete(
+            f"/api/pedidos/{pedido['id']}/itens/{item['id']}"
+        )
+
+        assert response.status_code == 204
+
+        detalhe = client.get(f"/api/pedidos/{pedido['id']}")
+        assert detalhe.json()["itens"] == []
+        assert detalhe.json()["subtotal"] == 0.0
+        
+    def test_remover_cupom_valido(self, client):
+        client.post(
+            "/api/cupons",
+            json={"codigo": "REMOVER10", "desconto": 10.0, "minimo": 0.0},
+        )
+        produto = criar_produto(client, estoque=10)
+        pedido = criar_pedido(client)
+        adicionar_item(client, pedido["id"], produto["id"], 2)
+
+        aplicar = client.post(
+            f"/api/pedidos/{pedido['id']}/cupom",
+            json={"codigo": "REMOVER10"},
+        )
+        assert aplicar.status_code == 200
+
+        response = client.delete(f"/api/pedidos/{pedido['id']}/cupom")
+
+        assert response.status_code == 200
+        assert response.json()["mensagem"] == "Cupom removido"
+

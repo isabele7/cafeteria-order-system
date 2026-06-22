@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 
 from app.database import get_db
 from app.models import Cupom, ItemPedido, Pagamento, Pedido, Produto, StatusPedido, TipoPedido
@@ -90,7 +91,7 @@ def criar_produto(
 ):
     existente = db.query(Produto).filter(Produto.nome == nome).first()
     if existente:
-        return _redirect("/painel/produtos", erro="Produto jÃ¡ existe.")
+        return _redirect("/painel/produtos", erro="Produto já existe.")
     produto = Produto(nome=nome.strip(), preco=preco, estoque=estoque)
     db.add(produto)
     db.commit()
@@ -107,10 +108,35 @@ def editar_produto(
     produto = db.query(Produto).filter(Produto.id == produto_id).first()
     if not produto:
         return _redirect("/painel/produtos", erro="Produto não encontrado.")
-    produto.nome = nome.strip()
+
+    nome_normalizado = nome.strip()
+    produto_com_mesmo_nome = (
+        db.query(Produto)
+        .filter(
+            Produto.nome == nome_normalizado,
+            Produto.id != produto_id,
+        )
+        .first()
+    )
+    if produto_com_mesmo_nome:
+        return _redirect(
+            "/painel/produtos",
+            erro="Já existe outro produto com esse nome.",
+        )
+
+    produto.nome = nome_normalizado
     produto.preco = preco
     produto.estoque = estoque
-    db.commit()
+
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        return _redirect(
+            "/painel/produtos",
+            erro="Já existe outro produto com esse nome.",
+        )
+
     return _redirect("/painel/produtos", mensagem="Produto atualizado.")
 
 @router.post("/produtos/{produto_id}/excluir")

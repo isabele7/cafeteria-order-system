@@ -72,13 +72,36 @@ def atualizar_produto(
         raise HTTPException(status_code=404, detail="Produto não encontrado.")
 
     if produto_update.nome is not None:
-        produto.nome = produto_update.nome
+        nome_normalizado = produto_update.nome.strip()
+        produto_com_mesmo_nome = (
+            db.query(Produto)
+            .filter(
+                Produto.nome == nome_normalizado,
+                Produto.id != produto_id,
+            )
+            .first()
+        )
+        if produto_com_mesmo_nome:
+            raise HTTPException(
+                status_code=409,
+                detail="Já existe outro produto com esse nome.",
+            )
+        produto.nome = nome_normalizado
+
     if produto_update.preco is not None:
         produto.preco = produto_update.preco
     if produto_update.estoque is not None:
         produto.estoque = produto_update.estoque
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Já existe outro produto com esse nome.",
+        )
+
     db.refresh(produto)
     return produto
 
@@ -91,3 +114,4 @@ def deletar_produto(produto_id: int, db: Session = Depends(get_db)):
     db.delete(produto)
     db.commit()
     return None
+
