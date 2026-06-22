@@ -22,7 +22,6 @@ def seed_database():
             Produto(nome="Pão de Queijo", preco=5.0, estoque=35),
             Produto(nome="Suco Natural", preco=7.0, estoque=25),
             Produto(nome="Refrigerante", preco=5.0, estoque=50),
-            Produto(nome="Produto Sem Estoque", preco=6.0, estoque=0),
         ]
 
         agora = datetime.utcnow()
