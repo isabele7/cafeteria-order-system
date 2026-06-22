@@ -189,3 +189,160 @@ def test_pedido_cancelado_nao_aceita_alteracoes(db, produtos_base):
     ok_finalizar, _ = OperacoesPedido.finalizar_pedido(pedido.id, db)
 
     assert not any([ok_item, ok_remove, ok_cupom, ok_remover_cupom, ok_tipo, ok_finalizar])
+
+# Cálculo de frete e desconto
+def test_definir_entrega_considera_subtotal_apos_desconto(db):
+    produto = Produto(nome="Kit Cafe", preco=55.0, estoque=1)
+    cupom = Cupom(
+        codigo="DESC10_ENTREGA",
+        desconto=10.0,
+        minimo=0.0,
+        ativo=True,
+    )
+    db.add_all([produto, cupom])
+    db.commit()
+    db.refresh(produto)
+
+    pedido = OperacoesPedido.criar_pedido(db, cliente_id="12345678900")
+
+    ok, item, msg = OperacoesPedido.adicionar_item(pedido.id,produto.id,1,db)
+    assert ok, msg
+    assert item is not None
+
+    ok, msg = OperacoesPedido.aplicar_cupom(pedido.id,"DESC10_ENTREGA",db)
+    assert ok, msg
+
+    ok, msg = OperacoesPedido.definir_tipo_pedido(pedido.id,TipoPedido.ENTREGA,db)
+    assert ok, msg
+
+    db.refresh(pedido)
+
+    assert (pedido.subtotal, pedido.desconto, pedido.taxa_entrega, pedido.total) == (
+        pytest.approx(55.0), pytest.approx(5.5), pytest.approx(10.0), pytest.approx(59.5),
+    )
+    
+def test_calculo_frete_apos_desconto(db):
+    produto = Produto(nome="Combo Entrega", preco=55.0, estoque=1)
+    cupom = Cupom(
+        codigo="REC10",
+        desconto=10.0,
+        minimo=0.0,
+        ativo=True,
+    )
+    db.add_all([produto, cupom])
+    db.commit()
+    db.refresh(produto)
+
+    pedido = OperacoesPedido.criar_pedido(db, cliente_id="12345678900")
+
+    ok, item, msg = OperacoesPedido.adicionar_item(pedido.id,produto.id,1,db)
+    assert ok, msg
+    assert item is not None
+
+    ok, msg = OperacoesPedido.definir_tipo_pedido(pedido.id,TipoPedido.ENTREGA,db)
+    assert ok, msg
+    assert pedido.taxa_entrega == pytest.approx(0.0)
+
+    ok, msg = OperacoesPedido.finalizar_pedido(pedido.id,db,codigo_cupom="REC10")
+    assert ok, msg
+
+    db.refresh(pedido)
+
+    assert (pedido.cupom_id, pedido.desconto, pedido.taxa_entrega, pedido.total, pedido.status) == (
+        cupom.id, pytest.approx(5.5), pytest.approx(10.0), pytest.approx(59.5), StatusPedido.PAGO
+    )
+
+# Cupom na finalização do pedido
+def test_finalizacao_revalida_cupom_ja_aplicado(db, produtos_base):
+    cupom = Cupom(
+        codigo="DESATIVADO_DEPOIS",
+        desconto=10.0,
+        minimo=0.0,
+        ativo=True,
+    )
+    db.add(cupom)
+    db.commit()
+
+    pedido = OperacoesPedido.criar_pedido(db, cliente_id="12345678900")
+
+    ok, item, msg = OperacoesPedido.adicionar_item(pedido.id,produtos_base["cafe"].id,10,db)
+    assert ok, msg
+    assert item is not None
+
+    ok, msg = OperacoesPedido.aplicar_cupom(pedido.id,"DESATIVADO_DEPOIS",db)
+    assert ok, msg
+
+    ok, msg = OperacoesPedido.definir_tipo_pedido(pedido.id,TipoPedido.RETIRADA,db)
+    assert ok, msg
+
+    cupom.ativo = False
+    db.commit()
+
+    ok, msg = OperacoesPedido.finalizar_pedido(pedido.id, db)
+
+    db.refresh(pedido)
+
+    assert (ok, msg, pedido.status) == (False, "Cupom inativo", StatusPedido.CRIADO)
+    
+def test_finalizacao_incrementa_usos_cupom(db,produtos_base):
+    cupom = Cupom(
+        codigo="USOS_EXISTENTES",
+        desconto=10.0,
+        minimo=0.0,
+        ativo=True,
+        usos=3,
+    )
+    db.add(cupom)
+    db.commit()
+
+    pedido = OperacoesPedido.criar_pedido(db, cliente_id="12345678900")
+
+    ok, item, msg = OperacoesPedido.adicionar_item(pedido.id,produtos_base["cafe"].id,10,db)
+    assert ok, msg
+    assert item is not None
+
+    ok, msg = OperacoesPedido.definir_tipo_pedido(pedido.id,TipoPedido.RETIRADA,db)
+    assert ok, msg
+
+    ok, msg = OperacoesPedido.finalizar_pedido(pedido.id,db,codigo_cupom="USOS_EXISTENTES")
+    assert ok, msg
+
+    db.refresh(cupom)
+
+    assert cupom.usos == 4
+
+# Cancelamento e estoque 
+def test_cancelar_restaura_somente_estoque_do_pedido_cancelado(db):
+    cafe = Produto(nome="Cafe Cancelamento", preco=5.0, estoque=10)
+    bolo = Produto(nome="Bolo Outro Pedido", preco=8.0, estoque=10)
+    db.add_all([cafe, bolo])
+    db.commit()
+    db.refresh(cafe)
+    db.refresh(bolo)
+
+    pedido_cancelado = OperacoesPedido.criar_pedido(db)
+    outro_pedido = OperacoesPedido.criar_pedido(db)
+
+    ok, item_cafe, msg = OperacoesPedido.adicionar_item(pedido_cancelado.id,cafe.id,2,db)
+    assert ok, msg
+    assert item_cafe is not None
+
+    ok, item_bolo, msg = OperacoesPedido.adicionar_item(outro_pedido.id,bolo.id,3,db)
+    assert ok, msg
+    assert item_bolo is not None
+
+    db.refresh(cafe)
+    db.refresh(bolo)
+    assert (cafe.estoque, bolo.estoque) == (8, 7)
+
+    ok, msg = OperacoesPedido.cancelar_pedido(pedido_cancelado.id,db)
+    assert (ok, msg) == (True, "Pedido cancelado com sucesso")
+
+    db.refresh(cafe)
+    db.refresh(bolo)
+
+    pedido_after = db.query(Pedido).filter(
+        Pedido.id == pedido_cancelado.id
+    ).first()
+
+    assert (cafe.estoque, bolo.estoque, pedido_after.status) == (10, 7, StatusPedido.CANCELADO)
