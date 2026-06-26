@@ -149,3 +149,25 @@ Os testes utilizam SQLite em memória e um banco limpo para cada caso. Nas rotas
 2. testes e cobertura;
 3. teste de mutação nos serviços;
 4. cálculo do score de mutação.
+
+### Cobertura (pytest)
+
+Cobertura total: **93%**
+
+### Teste de mutação (mutmut)
+
+O mutmut foi executado sobre `app/services`, onde estão as principais regras.
+
+Mutantes mortos: 264 / (264 + 45 + 5) = **84,08%**
+
+## Limitações
+
+- O pagamento é simulado, sem provedor externo.
+- O CPF é utilizado como identificador, sem validação completa dos dígitos.
+- Não há teste E2E.
+
+## Como acessar
+
+Acesse: <https://cafeteria-order-system.onrender.com/painel>
+
+Documentação da API: <https://cafeteria-order-system.onrender.com/docs>
