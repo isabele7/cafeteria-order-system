@@ -164,7 +164,6 @@ Mutantes mortos: 264 / (264 + 45 + 5) = **84,08%**
 
 - O pagamento é simulado, sem provedor externo.
 - O CPF é utilizado como identificador, sem validação completa dos dígitos.
-- Não há teste E2E.
 
 ## Como acessar
 
