@@ -129,7 +129,7 @@ A classe válida foi representada por um caso que satisfaz todas as condições.
 
 ## Organização dos testes
 
-A suíte possui 101 testes:
+A suíte possui 102 testes:
 
 | Arquivo | Escopo |
 |---|---|
@@ -140,6 +140,15 @@ A suíte possui 101 testes:
 | `test_regras_negocio.py` | Regras combinadas |
 | `test_rotas.py` | Integração da API com `TestClient` |
 | `test_models.py` e `test_database.py` | Modelos e persistência |
+| `test_e2e_fluxo_pedido.py` |  Teste E2E com Playwright do fluxo completo do pedido |
+
+Distribuição:
+
+- 72 testes unitários/regras isoladas;
+- 29 testes de integração;
+- 1 teste E2E de fluxo completo.
+
+No GitHub Actions, rodam automaticamente 101 testes a cada push. O teste E2E fica desativado por padrão e é executado localmente com `RUN_E2E=1`, pois depende de navegador.
 
 Os testes utilizam SQLite em memória e um banco limpo para cada caso. Nas rotas, o `TestClient` utiliza esse banco por meio da substituição da dependência `get_db`.
 
